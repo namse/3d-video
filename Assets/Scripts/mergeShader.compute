@@ -3,18 +3,36 @@
 
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
-Texture2D<float4> colorTexture1;
-Texture2D<float4> colorTexture2;
-Texture2D<float4> depthTexture1;
-Texture2D<float4> depthTexture2;
+Texture2D<float4> TextureA;
+Texture2D<float4> TextureB;
+Texture2D<float4> TextureBackground;
 RWTexture2D<float4> resultTexture;
 
 [numthreads(8,8,1)]
 void Merge (uint3 id : SV_DispatchThreadID)
 {
-    // TODO: insert actual code here!
+    float4 colorA = TextureA[id.xy];
+    float4 colorB = TextureB[id.xy];
 
-    resultTexture[id.xy] = depthTexture1[id.xy].x > depthTexture2[id.xy].x
-        ? colorTexture1[id.xy]
-        : colorTexture2[id.xy];
+    float4 result;
+    
+    /*if (colorA.a == colorB.a && colorA.a == 0)
+    {
+        result = TextureBackground[id.xy];
+    }
+    else
+    {
+        result = colorA.a > colorB.a
+            ? colorA
+            : colorB;
+    }*/
+
+    result = colorA.a > colorB.a
+        ? colorA
+        : colorB;
+
+
+    result.a = 1;
+
+    resultTexture[id.xy] = result;
 }
