@@ -21,7 +21,6 @@ public class Capturer : MonoBehaviour
     void Start()
     {
         camera1.depthTextureMode = DepthTextureMode.Depth;
-        camera2.depthTextureMode = DepthTextureMode.Depth;
     }
     //public void Capture()
     //{

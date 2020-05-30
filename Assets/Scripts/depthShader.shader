@@ -1,40 +1,40 @@
 ﻿Shader "Render Depth" {
     Properties{
+        [NoScaleOffset] _MainTex("Texture", 2D) = "white" {}
     }
     SubShader{
         Tags { "RenderType" = "Opaque" }
-        LOD 200
-
         Pass {
-            Lighting Off Fog { Mode Off }
-
             CGPROGRAM
+
             #pragma vertex vert
             #pragma fragment frag
-            #pragma fragmentoption ARB_precision_hint_fastest
-
-            struct a2v {
-                float4 vertex : POSITION;
-                fixed4 color : COLOR;
-            };
+            #include "UnityCG.cginc"
 
             struct v2f {
                 float4 pos : SV_POSITION;
-                half dist : TEXCOORD0;
+                float2 depth : TEXCOORD0;
+                float2 uv : TEXCOORD1;
             };
 
-            v2f vert(a2v v) {
+            v2f vert(appdata_base v) {
                 v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
-                o.dist = mul(UNITY_MATRIX_IT_MV, v.vertex).z;
+                COMPUTE_EYEDEPTH(o.depth);
+                o.uv = v.texcoord;
                 return o;
             }
 
-            fixed4 frag(v2f i) : COLOR {
-                return fixed4(i.dist, i.dist, i.dist, 1);
+            sampler2D _MainTex;
+
+            fixed4 frag(v2f i) : SV_Target {
+                fixed4 color = tex2D(_MainTex, i.uv);
+                float depth = DECODE_EYEDEPTH(i.depth);
+
+                color.a = depth;
+                return color;
             }
             ENDCG
         }
     }
-        FallBack Off
 }
