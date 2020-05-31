@@ -19,15 +19,16 @@ public class DepthRecorder : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+#if UNITY_EDITOR
         EditorApplication.playModeStateChanged += Save;
-
+#endif
         if (isRecordOn)
         {
             var path = "Assets/Depths/depth.txt";
             streamWriter = File.CreateText(path);
         }
     }
-
+#if UNITY_EDITOR
     private void Save(PlayModeStateChange change)
     {
         if (change == PlayModeStateChange.ExitingPlayMode)
@@ -36,6 +37,7 @@ public class DepthRecorder : MonoBehaviour
             isRecordOn = false;
         }
     }
+#endif
 
     // Update is called once per frame
     void Update()

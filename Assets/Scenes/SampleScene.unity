@@ -311,7 +311,7 @@ MonoBehaviour:
   targets:
   - {fileID: 213807770}
   - {fileID: 1226115303}
-  isRecordOn: 1
+  isRecordOn: 0
 --- !u!20 &282840813
 Camera:
   m_ObjectHideFlags: 0
