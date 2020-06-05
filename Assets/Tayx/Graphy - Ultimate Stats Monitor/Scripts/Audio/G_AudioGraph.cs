@@ -221,7 +221,7 @@ namespace Tayx.Graphy.Audio
             m_shaderGraphHighestValues.CautionThreshold     = 0;
             m_shaderGraphHighestValues.UpdateThresholds();
 
-            // Update Array
+            // Update OriginalArray
             m_shaderGraph.UpdateArray();
             m_shaderGraphHighestValues.UpdateArray();
 

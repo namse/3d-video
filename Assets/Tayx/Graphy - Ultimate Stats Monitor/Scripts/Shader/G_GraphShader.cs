@@ -24,7 +24,7 @@ namespace Tayx.Graphy
          * Add summaries to the variables.
          * --------------------------------------*/
 
-        #region Variables -> Array
+        #region Variables -> OriginalArray
 
         public const int    ArrayMaxSizeFull            = 512;
         public const int    ArrayMaxSizeLight           = 128;
