@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using Dav1dDotnet;
 using Dav1dDotnet.Decoder;
@@ -16,19 +17,32 @@ using Debug = UnityEngine.Debug;
 
 public class FrameStreamerTester : MonoBehaviour
 {
-    private IvfAv1Decoder _ivfAv1Decoder;
+    private IvfAv1Decoder[] _ivfAv1Decoders;
+
     private int _frameNumber;
     private readonly Stopwatch _stopwatch = new Stopwatch();
     public RawImage rawImage;
 
     void Start()
     {
-
+        _ivfAv1Decoders = new IvfAv1Decoder[8];
         var asset = Resources.Load("whiteAlpha");
         var textAsset = asset as TextAsset;
-        var stream = new MemoryStream(textAsset.bytes);
+        for (var i = 0; i < _ivfAv1Decoders.Length; i+= 1)
+        {
+            var stream = new MemoryStream(textAsset.bytes);
 
-        _ivfAv1Decoder = new IvfAv1Decoder(stream);
+            var ivfAv1Decoder = new IvfAv1Decoder(stream);
+            _ivfAv1Decoders[i] = ivfAv1Decoder;
+        }
+    }
+
+    void OnDestroy()
+    {
+        foreach (var ivfAv1Decoder in _ivfAv1Decoders)
+        {
+            ivfAv1Decoder?.Dispose();
+        }
     }
 
     void Update()
@@ -42,30 +56,40 @@ public class FrameStreamerTester : MonoBehaviour
             _stopwatch.Stop();
             Debug.Log(_stopwatch.Elapsed);
         }
-        if (_ivfAv1Decoder.TryGetAv1Frame(_frameNumber, out var av1Frame))
+
+        if (_ivfAv1Decoders.All(ivfAv1Decoder => ivfAv1Decoder.TryGetAv1Frame(_frameNumber, out _)))
         {
-            rawImage.texture = GetTextureFromAv1Frame(av1Frame);
-            _ivfAv1Decoder.CheckConsumedFrameNumber(_frameNumber);
+            var frames = _ivfAv1Decoders.Select(ivfAv1Decoder =>
+            {
+                ivfAv1Decoder.TryGetAv1Frame(_frameNumber, out var av1Frame);
+                return av1Frame;
+            }).ToList();
+
+            //var texture = GetTextureFromAv1Frames(frames);
+            //rawImage.texture = texture;
+
+            foreach (var ivfAv1Decoder in _ivfAv1Decoders)
+            {
+                ivfAv1Decoder.CheckConsumedFrameNumber(_frameNumber);
+            }
 
             _frameNumber += 1;
         }
     }
 
-    void OnDestroy()
+    private Texture GetTextureFromAv1Frames(List<Av1Frame> frames)
     {
-        _ivfAv1Decoder?.Dispose();
-    }
-
-    private Texture GetTextureFromAv1Frame(Av1Frame av1Frame)
-    {
-        const int chunkHeight = 1080 / 8;
+        const int chunkHeight = 1080 / 32;
+        var lumaBytesPtrs = new NativeArray<IntPtr>(frames.Select(frame => frame.Picture._data[0]).ToArray(), Allocator.TempJob);
+        var uBytesPtrs = new NativeArray<IntPtr>(frames.Select(frame => frame.Picture._data[1]).ToArray(), Allocator.TempJob);
+        var vBytesPtrs = new NativeArray<IntPtr>(frames.Select(frame => frame.Picture._data[2]).ToArray(), Allocator.TempJob);
         var rgbList = new NativeArray<byte>(1920 * 1080 * 3, Allocator.TempJob);
 
         var job = new YuvToRgbJob
         {
-            LumaBytesPtr = av1Frame.Picture._data[0],
-            UBytesPtr = av1Frame.Picture._data[1],
-            VBytesPtr = av1Frame.Picture._data[2],
+            LumaBytesPtrs = lumaBytesPtrs,
+            UBytesPtrs = uBytesPtrs,
+            VBytesPtrs = vBytesPtrs,
             ChunkHeight = chunkHeight,
             RgbList = rgbList,
         };
@@ -77,6 +101,9 @@ public class FrameStreamerTester : MonoBehaviour
         texture.Apply();
 
         rgbList.Dispose();
+        lumaBytesPtrs.Dispose();
+        uBytesPtrs.Dispose();
+        vBytesPtrs.Dispose();
         return texture;
     }
 
@@ -85,16 +112,19 @@ public class FrameStreamerTester : MonoBehaviour
     private struct YuvToRgbJob : IJobParallelFor
     {
         [ReadOnly]
+        [NativeDisableParallelForRestriction]
         [NativeDisableUnsafePtrRestriction]
-        public IntPtr LumaBytesPtr;
+        public NativeArray<IntPtr> LumaBytesPtrs;
 
         [ReadOnly]
+        [NativeDisableParallelForRestriction]
         [NativeDisableUnsafePtrRestriction]
-        public IntPtr UBytesPtr;
+        public NativeArray<IntPtr> UBytesPtrs;
 
         [ReadOnly]
+        [NativeDisableParallelForRestriction]
         [NativeDisableUnsafePtrRestriction]
-        public IntPtr VBytesPtr;
+        public NativeArray<IntPtr> VBytesPtrs;
 
         [ReadOnly]
         public int ChunkHeight;
@@ -125,10 +155,6 @@ public class FrameStreamerTester : MonoBehaviour
         {
             unsafe
             {
-                var lumaBytesPtr = (byte*)LumaBytesPtr.ToPointer();
-                var uBytesPtr = (byte*)UBytesPtr.ToPointer();
-                var vBytesPtr = (byte*)VBytesPtr.ToPointer();
-
                 const int width = 1920;
                 const int height = 1080;
 
@@ -142,6 +168,10 @@ public class FrameStreamerTester : MonoBehaviour
                     for (var x = 0; x < width; x += 1)
                     {
                         var xy = x + y * width;
+                        var lumaBytesPtr = (byte*)LumaBytesPtrs[0].ToPointer();
+                        var uBytesPtr = (byte*)UBytesPtrs[0].ToPointer();
+                        var vBytesPtr = (byte*)VBytesPtrs[0].ToPointer();
+
                         var luma = lumaBytesPtr[xy];
 
                         var uvIndex = x / 2 + (y / 2) * width / 2;
