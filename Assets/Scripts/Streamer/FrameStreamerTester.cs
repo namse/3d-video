@@ -4,7 +4,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using AOT;
 using Dav1dDotnet;
+using Dav1dDotnet.Dav1d.Definitions;
 using Dav1dDotnet.Decoder;
 using Unity.Burst;
 using Unity.Collections;
@@ -17,24 +19,27 @@ using Debug = UnityEngine.Debug;
 
 public class FrameStreamerTester : MonoBehaviour
 {
-    private IvfAv1Decoder[] _ivfAv1Decoders;
+    private IvfAv1Decoder[] _ivfAv1Decoders = {};
 
     private int _frameNumber;
     private readonly Stopwatch _stopwatch = new Stopwatch();
     public RawImage rawImage;
+    public Text text;
 
     void Start()
     {
-        _ivfAv1Decoders = new IvfAv1Decoder[8];
+        _ivfAv1Decoders = new IvfAv1Decoder[1];
         var asset = Resources.Load("whiteAlpha");
         var textAsset = asset as TextAsset;
-        for (var i = 0; i < _ivfAv1Decoders.Length; i+= 1)
+        for (var i = 0; i < _ivfAv1Decoders.Length; i += 12)
         {
             var stream = new MemoryStream(textAsset.bytes);
 
             var ivfAv1Decoder = new IvfAv1Decoder(stream);
             _ivfAv1Decoders[i] = ivfAv1Decoder;
         }
+        
+        rawImage.texture = new Texture2D(1920, 1080, TextureFormat.RGB24, false);
     }
 
     void OnDestroy()
@@ -47,6 +52,7 @@ public class FrameStreamerTester : MonoBehaviour
 
     void Update()
     {
+        text.text = _frameNumber.ToString();
         if (_frameNumber == 1)
         {
             _stopwatch.Start();
@@ -59,52 +65,49 @@ public class FrameStreamerTester : MonoBehaviour
 
         if (_ivfAv1Decoders.All(ivfAv1Decoder => ivfAv1Decoder.TryGetAv1Frame(_frameNumber, out _)))
         {
-            var frames = _ivfAv1Decoders.Select(ivfAv1Decoder =>
-            {
-                ivfAv1Decoder.TryGetAv1Frame(_frameNumber, out var av1Frame);
-                return av1Frame;
-            }).ToList();
+            //var frames = _ivfAv1Decoders.Select(ivfAv1Decoder =>
+            //{
+            //    ivfAv1Decoder.TryGetAv1Frame(_frameNumber, out var av1Frame);
+            //    return av1Frame;
+            //}).ToList();
 
-            //var texture = GetTextureFromAv1Frames(frames);
-            //rawImage.texture = texture;
+            //var texture = rawImage.texture as Texture2D;
+            
+            //GetTextureFromAv1Frames(frames, ref texture);
+            
 
-            foreach (var ivfAv1Decoder in _ivfAv1Decoders)
-            {
-                ivfAv1Decoder.CheckConsumedFrameNumber(_frameNumber);
-            }
+            //foreach (var ivfAv1Decoder in _ivfAv1Decoders)
+            //{
+            //    ivfAv1Decoder.CheckConsumedFrameNumber(_frameNumber);
+            //}
 
             _frameNumber += 1;
         }
     }
 
-    private Texture GetTextureFromAv1Frames(List<Av1Frame> frames)
+    private void GetTextureFromAv1Frames(List<Av1Frame> frames, ref Texture2D texture)
     {
         const int chunkHeight = 1080 / 32;
-        var lumaBytesPtrs = new NativeArray<IntPtr>(frames.Select(frame => frame.Picture._data[0]).ToArray(), Allocator.TempJob);
-        var uBytesPtrs = new NativeArray<IntPtr>(frames.Select(frame => frame.Picture._data[1]).ToArray(), Allocator.TempJob);
-        var vBytesPtrs = new NativeArray<IntPtr>(frames.Select(frame => frame.Picture._data[2]).ToArray(), Allocator.TempJob);
-        var rgbList = new NativeArray<byte>(1920 * 1080 * 3, Allocator.TempJob);
 
-        var job = new YuvToRgbJob
+        using (var lumaBytesPtrs = new NativeArray<IntPtr>(frames.Select(frame => frame.Picture._data[0]).ToArray(), Allocator.TempJob))
+        using (var uBytesPtrs = new NativeArray<IntPtr>(frames.Select(frame => frame.Picture._data[1]).ToArray(), Allocator.TempJob))
+        using (var vBytesPtrs = new NativeArray<IntPtr>(frames.Select(frame => frame.Picture._data[2]).ToArray(), Allocator.TempJob))
+        using (var rgbList = new NativeArray<byte>(1920 * 1080 * 3, Allocator.TempJob))
         {
-            LumaBytesPtrs = lumaBytesPtrs,
-            UBytesPtrs = uBytesPtrs,
-            VBytesPtrs = vBytesPtrs,
-            ChunkHeight = chunkHeight,
-            RgbList = rgbList,
-        };
+            var job = new YuvToRgbJob
+            {
+                LumaBytesPtrs = lumaBytesPtrs,
+                UBytesPtrs = uBytesPtrs,
+                VBytesPtrs = vBytesPtrs,
+                ChunkHeight = chunkHeight,
+                RgbList = rgbList,
+            };
 
-        job.Schedule(1080 / chunkHeight, 1).Complete();
+            job.Schedule(1080 / chunkHeight, 1).Complete();
 
-        var texture = new Texture2D(1920, 1080, TextureFormat.RGB24, false);
-        texture.SetPixelData(rgbList, 0);
-        texture.Apply();
-
-        rgbList.Dispose();
-        lumaBytesPtrs.Dispose();
-        uBytesPtrs.Dispose();
-        vBytesPtrs.Dispose();
-        return texture;
+            texture.SetPixelData(rgbList, 0);
+            texture.Apply();
+        }
     }
 
     [BurstCompile(CompileSynchronously = true)]

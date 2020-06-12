@@ -5,7 +5,10 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/VideoPlayerTest.unity
     guid: 8d2fff7ddea3cd5438c7eeba222d8378
+  - enabled: 1
+    path: Assets/Scenes/TEST_FrameStreamer.unity
+    guid: cc3ad6c035e14f0409f8749c456b0b4f
   m_configObjects: {}
