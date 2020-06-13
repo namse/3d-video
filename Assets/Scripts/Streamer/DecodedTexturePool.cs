@@ -44,7 +44,7 @@ public class DecodedTexturePool : MonoBehaviour, IDecoder
             _ivfAv1Decoders[i] = new IvfAv1Decoder(stream);
         }
 
-        for (var i = 0; i < 3; i += 1)
+        for (var i = 0; i < 4; i += 1)
         {
             var texture = new Texture2D(1920, 1080, TextureFormat.RGB24, false);
             _freeTextureQueue.Enqueue(texture);
@@ -85,6 +85,7 @@ public class DecodedTexturePool : MonoBehaviour, IDecoder
 
     private void ScheduleAvailableFrames()
     {
+        Debug.Log($"_jobMemories.Count {_jobMemories.Count}");
         const int maxJobMemories = 4;
         while (_jobMemories.Count < maxJobMemories
             && _ivfAv1Decoders.All(ivfAv1Decoder => ivfAv1Decoder.TryGetAv1Frame(_frameNumber, out _)))
@@ -100,7 +101,7 @@ public class DecodedTexturePool : MonoBehaviour, IDecoder
             var jobMemory = ScheduleYuvToRgbJob(frames, _frameNumber);
             _jobMemories.Enqueue(jobMemory);
 
-            _frameNumber += 1;
+            _frameNumber += 2;
 
             _stopwatch.Stop();
             Debug.Log($"ScheduleAvailableFrames 1 Cycle {_stopwatch.ElapsedMilliseconds}");
@@ -123,6 +124,8 @@ public class DecodedTexturePool : MonoBehaviour, IDecoder
     {
         _freeTextureQueue.Enqueue(texture);
     }
+
+    public int AvailableTextureCount => _decodedQueue.Count;
 
     void OnDestroy()
     {

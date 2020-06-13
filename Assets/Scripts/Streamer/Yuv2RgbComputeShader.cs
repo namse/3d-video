@@ -20,13 +20,15 @@ public class Yuv2RgbComputeShader : MonoBehaviour, IDecoder
     private List<Texture2D> _rawTextures;
     public ComputeShader computeShader;
 
-    private int _frameNumber;
+    private int _frameNumber = 1;
     private int _kernel;
     
     private byte[] _lumaBytes = new byte[1920 * 1080];
     private byte[] _uBytes = new byte[1920 * 1080 / 4];
     private byte[] _vBytes = new byte[1920 * 1080 / 4];
     private List<GpuJob> _workingGpuJobs;
+
+    public int AvailableTextureCount => _decodedQueue.Count;
 
     void Start()
     {
@@ -55,7 +57,7 @@ public class Yuv2RgbComputeShader : MonoBehaviour, IDecoder
             _freeTextureQueue.Enqueue(texture);
             _rawTextures.Add(texture);
         }
-        _kernel = computeShader.FindKernel("Yuv2Rgb");
+        _kernel = computeShader.FindKernel("Yuv2Rgb");;
     }
 
     void OnDestroy()
@@ -129,7 +131,7 @@ public class Yuv2RgbComputeShader : MonoBehaviour, IDecoder
             var texture = _freeTextureQueue.Dequeue();
             DispatchConvertFrame(frames[0], gpuJob, texture);
 
-            _frameNumber += 1;
+            _frameNumber += 2;
         }
     }
 

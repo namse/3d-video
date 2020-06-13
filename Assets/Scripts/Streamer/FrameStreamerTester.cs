@@ -13,11 +13,10 @@ public class FrameStreamerTester : MonoBehaviour
     public DecodedTexturePool decodedTexturePool;
     public Yuv2RgbComputeShader yuv2RgbComputeShader;
     private Texture2D _lastTexture;
-    private IDecoder _decoder;
 
     void Start()
     {
-        _decoder = decodedTexturePool ?? (IDecoder)yuv2RgbComputeShader;
+        Application.targetFrameRate = 60;
     }
 
     void OnDestroy()
@@ -36,15 +35,18 @@ public class FrameStreamerTester : MonoBehaviour
             _stopwatch.Stop();
             Debug.Log(_stopwatch.Elapsed);
         }
-        
-        if (_decoder.TryGetNextTexture(out var texture))
+
+        var decoder = _frameNumber % 2 == 0 ? decodedTexturePool : (IDecoder) yuv2RgbComputeShader;
+
+        if (decoder.TryGetNextTexture(out var texture))
         {
             rawImage.texture = texture;
             _frameNumber += 1;
 
             if (!(_lastTexture is null))
             {
-                _decoder.ReturnTexture(_lastTexture);
+                var returnDecoder = _frameNumber % 2 == 0 ? decodedTexturePool : (IDecoder)yuv2RgbComputeShader;
+                returnDecoder.ReturnTexture(_lastTexture);
             }
 
             _lastTexture = texture;
