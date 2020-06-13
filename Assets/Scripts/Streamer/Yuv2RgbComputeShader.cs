@@ -4,14 +4,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using Amazon.S3.Model;
 using Dav1dDotnet;
 using Dav1dDotnet.Decoder;
-using Unity.Burst;
-using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs;
 using UnityEngine;
+using UnityEngine.Rendering;
 using Debug = UnityEngine.Debug;
 using Object = UnityEngine.Object;
 
@@ -26,14 +22,11 @@ public class Yuv2RgbComputeShader : MonoBehaviour, IDecoder
 
     private int _frameNumber;
     private int _kernel;
-    private ComputeBuffer _lumaBuffer;
-    private ComputeBuffer _uBuffer;
-    private ComputeBuffer _vBuffer;
-    private ComputeBuffer _rgbaBuffer;
-    private readonly byte[] _rgbaTempBuffer = new byte[1920 * 1080 * 4];
-    private readonly byte[] _lumaBytes = new byte[1920 * 1080];
-    private readonly byte[] _uBytes = new byte[1920 * 1080 / 4];
-    private readonly byte[] _vBytes = new byte[1920 * 1080 / 4];
+    
+    private byte[] _lumaBytes = new byte[1920 * 1080];
+    private byte[] _uBytes = new byte[1920 * 1080 / 4];
+    private byte[] _vBytes = new byte[1920 * 1080 / 4];
+    private List<GpuJob> _workingGpuJobs;
 
     void Start()
     {
@@ -41,6 +34,11 @@ public class Yuv2RgbComputeShader : MonoBehaviour, IDecoder
         _decodedQueue = new Queue<Texture2D>();
         _freeTextureQueue = new Queue<Texture2D>();
         _rawTextures = new List<Texture2D>();
+
+        _lumaBytes = new byte[1920 * 1080];
+        _uBytes = new byte[1920 * 1080 / 4];
+        _vBytes = new byte[1920 * 1080 / 4];
+        _workingGpuJobs = new List<GpuJob>();
 
         var asset = Resources.Load("whiteAlpha");
         var textAsset = asset as TextAsset;
@@ -51,22 +49,13 @@ public class Yuv2RgbComputeShader : MonoBehaviour, IDecoder
             _ivfAv1Decoders[i] = new IvfAv1Decoder(stream);
         }
 
-        for (var i = 0; i < 3; i += 1)
+        for (var i = 0; i < 20; i += 1)
         {
             var texture = new Texture2D(1920, 1080, TextureFormat.RGBA32, false);
             _freeTextureQueue.Enqueue(texture);
             _rawTextures.Add(texture);
         }
         _kernel = computeShader.FindKernel("Yuv2Rgb");
-        _lumaBuffer = new ComputeBuffer(1920 * 1080 / 16, 16);
-        _uBuffer = new ComputeBuffer(1920 * 1080 / 64, 16);
-        _vBuffer = new ComputeBuffer(1920 * 1080 / 64, 16);
-        _rgbaBuffer = new ComputeBuffer(1920 * 1080 / 4, 16);
-    }
-
-    void Update()
-    {
-        ConvertAvailableFrames();
     }
 
     void OnDestroy()
@@ -76,32 +65,94 @@ public class Yuv2RgbComputeShader : MonoBehaviour, IDecoder
         {
             ivfAv1Decoder?.Dispose();
         }
-        _lumaBuffer?.Dispose();
-        _uBuffer?.Dispose();
-        _vBuffer?.Dispose();
-        _rgbaBuffer?.Dispose();
+
+        foreach (var gpuJob in _workingGpuJobs)
+        {
+            gpuJob.Dispose();
+        }
+        GpuJob.DestroyPool();
     }
 
-    private void ConvertAv1FrameToTexture2D(Av1Frame av1Frame, Texture2D texture)
+    void Update()
+    {
+        DispatchAvailableFrames();
+        ConvertDoneRequestToTexture2D();
+    }
+
+    private void ConvertDoneRequestToTexture2D()
+    {
+        var doneJobs = _workingGpuJobs.Where(job => job.request.done);
+        foreach (var gpuJob in doneJobs)
+        {
+            if (gpuJob.request.hasError)
+            {
+                Debug.Log("Has Error");
+                continue;
+            }
+
+            _stopwatch.Restart();
+            var rgba = gpuJob.request.GetData<byte>();
+            
+            _stopwatch.Stop();
+            Debug.Log($"GetData {_stopwatch.ElapsedMilliseconds}");
+            _stopwatch.Restart();
+
+            var texture = gpuJob.texture2D;
+
+            texture.SetPixelData(rgba, 0);
+            texture.Apply(false);
+            
+            _stopwatch.Stop();
+            Debug.Log($"SetPixelData Apply {_stopwatch.ElapsedMilliseconds}");
+            _stopwatch.Restart();
+
+            _decodedQueue.Enqueue(texture);
+
+            GpuJob.Return(gpuJob);
+        }
+
+        _workingGpuJobs = _workingGpuJobs.Where(job => !job.request.done).ToList();
+    }
+
+    private void DispatchAvailableFrames()
+    {
+        while (_freeTextureQueue.Count > 0
+            && _ivfAv1Decoders.All(ivfAv1Decoder => ivfAv1Decoder.TryGetAv1Frame(_frameNumber, out _))
+            && GpuJob.TryRent(out var gpuJob))
+        {
+            var frames = _ivfAv1Decoders.Select(ivfAv1Decoder =>
+            {
+                ivfAv1Decoder.TryGetAv1Frame(_frameNumber, out var av1Frame);
+                return av1Frame;
+            }).ToList();
+
+            var texture = _freeTextureQueue.Dequeue();
+            DispatchConvertFrame(frames[0], gpuJob, texture);
+
+            _frameNumber += 1;
+        }
+    }
+
+    private void DispatchConvertFrame(Av1Frame av1Frame, GpuJob gpuJob, Texture2D texture2D)
     {
         _stopwatch.Restart();
         Marshal.Copy(av1Frame.Picture._data[0], _lumaBytes, 0, 1920 * 1080);
-        _lumaBuffer.SetData(_lumaBytes);
-        computeShader.SetBuffer(_kernel, "lumaBuffer", _lumaBuffer);
+        gpuJob.LumaBuffer.SetData(_lumaBytes);
+        computeShader.SetBuffer(_kernel, "lumaBuffer", gpuJob.LumaBuffer);
 
         Marshal.Copy(av1Frame.Picture._data[1], _uBytes, 0, 1920 * 1080 / 4);
-        _uBuffer.SetData(_uBytes);
-        computeShader.SetBuffer(_kernel, "uBuffer", _uBuffer);
+        gpuJob.UBuffer.SetData(_uBytes);
+        computeShader.SetBuffer(_kernel, "uBuffer", gpuJob.UBuffer);
 
         Marshal.Copy(av1Frame.Picture._data[2], _vBytes, 0, 1920 * 1080 / 4);
-        _vBuffer.SetData(_vBytes);
-        computeShader.SetBuffer(_kernel, "vBuffer", _vBuffer);
+        gpuJob.VBuffer.SetData(_vBytes);
+        computeShader.SetBuffer(_kernel, "vBuffer", gpuJob.VBuffer);
 
         _stopwatch.Stop();
         Debug.Log($"Copy {_stopwatch.ElapsedMilliseconds}");
         _stopwatch.Restart();
 
-        computeShader.SetBuffer(_kernel, "rgbaBuffer", _rgbaBuffer);
+        computeShader.SetBuffer(_kernel, "rgbaBuffer", gpuJob.RgbaBuffer);
 
         _stopwatch.Stop();
         Debug.Log($"Copy {_stopwatch.ElapsedMilliseconds}");
@@ -113,38 +164,9 @@ public class Yuv2RgbComputeShader : MonoBehaviour, IDecoder
         Debug.Log($"Dispatch {_stopwatch.ElapsedMilliseconds}");
         _stopwatch.Restart();
 
-        _rgbaBuffer.GetData(_rgbaTempBuffer);
-        
-        _stopwatch.Stop();
-        Debug.Log($"GetData {_stopwatch.ElapsedMilliseconds}");
-        _stopwatch.Restart();
-        
-        texture.SetPixelData(_rgbaTempBuffer, 0);
-        texture.Apply(false);
-
-        _stopwatch.Stop();
-        Debug.Log($"Set Pixel{_stopwatch.ElapsedMilliseconds}");
-    }
-
-    private void ConvertAvailableFrames()
-    {
-        while (_freeTextureQueue.Count > 0
-            && _ivfAv1Decoders.All(ivfAv1Decoder => ivfAv1Decoder.TryGetAv1Frame(_frameNumber, out _)))
-        {
-
-            var frames = _ivfAv1Decoders.Select(ivfAv1Decoder =>
-            {
-                ivfAv1Decoder.TryGetAv1Frame(_frameNumber, out var av1Frame);
-                return av1Frame;
-            }).ToList();
-            var texture = _freeTextureQueue.Dequeue();
-
-            ConvertAv1FrameToTexture2D(frames[0], texture);
-            _decodedQueue.Enqueue(texture);
-
-            _frameNumber += 1;
-
-        }
+        gpuJob.request = AsyncGPUReadback.Request(gpuJob.RgbaBuffer);
+        gpuJob.texture2D = texture2D;
+        _workingGpuJobs.Add(gpuJob);
     }
 
     public bool TryGetNextTexture(out Texture2D texture)
@@ -162,5 +184,57 @@ public class Yuv2RgbComputeShader : MonoBehaviour, IDecoder
     public void ReturnTexture(Texture2D texture)
     {
         _freeTextureQueue.Enqueue(texture);
+    }
+
+    public class GpuJob: IDisposable
+    {
+        public readonly ComputeBuffer LumaBuffer = new ComputeBuffer(1920 * 1080 / 16, 16);
+        public readonly ComputeBuffer UBuffer = new ComputeBuffer(1920 * 1080 / 64, 16);
+        public readonly ComputeBuffer VBuffer = new ComputeBuffer(1920 * 1080 / 64, 16);
+        public readonly ComputeBuffer RgbaBuffer = new ComputeBuffer(1920 * 1080 / 4, 16);
+        public AsyncGPUReadbackRequest request;
+        public Texture2D texture2D;
+
+        private static readonly Queue<GpuJob> Pool = new Queue<GpuJob>();
+
+        public static bool TryRent(out GpuJob gpuJob)
+        {
+            gpuJob = Pool.Count > 0 ? Pool.Dequeue() : null;
+            return !(gpuJob is null);
+        }
+
+        public static void Return(GpuJob gpuJob)
+        {
+            Pool.Enqueue(gpuJob);
+        }
+
+        public static void DestroyPool()
+        {
+            foreach (var gpuJob in Pool)
+            {
+                gpuJob.Dispose();
+            }
+        }
+
+        static GpuJob()
+        {
+            for (var i = 0; i < 20; i +=1)
+            {
+                Pool.Enqueue(new GpuJob());
+            }
+        }
+
+        private GpuJob()
+        {
+
+        }
+
+        public void Dispose()
+        {
+            LumaBuffer?.Dispose();
+            UBuffer?.Dispose();
+            VBuffer?.Dispose();
+            RgbaBuffer?.Dispose();
+        }
     }
 }
