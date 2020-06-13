@@ -132,21 +132,37 @@ PrefabInstance:
       propertyPath: m_Name
       value: '[Graphy]'
       objectReference: {fileID: 0}
+    - target: {fileID: 22415034, guid: 0abab5bb77339e4428787a870eb31bd3, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: -163.56982
+      objectReference: {fileID: 0}
+    - target: {fileID: 22415034, guid: 0abab5bb77339e4428787a870eb31bd3, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: -269.80005
+      objectReference: {fileID: 0}
     - target: {fileID: 22424132, guid: 0abab5bb77339e4428787a870eb31bd3, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -0.19995117
+      value: -0.20019531
+      objectReference: {fileID: 0}
+    - target: {fileID: 22431670, guid: 0abab5bb77339e4428787a870eb31bd3, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: -163.72021
+      objectReference: {fileID: 0}
+    - target: {fileID: 22431670, guid: 0abab5bb77339e4428787a870eb31bd3, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: -93.62988
       objectReference: {fileID: 0}
     - target: {fileID: 22439978, guid: 0abab5bb77339e4428787a870eb31bd3, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -0.19995117
+      value: -0.20019531
       objectReference: {fileID: 0}
     - target: {fileID: 22445198, guid: 0abab5bb77339e4428787a870eb31bd3, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -0.19995117
+      value: -0.20019531
       objectReference: {fileID: 0}
     - target: {fileID: 22450346, guid: 0abab5bb77339e4428787a870eb31bd3, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -0.19995117
+      value: -0.20019531
       objectReference: {fileID: 0}
     - target: {fileID: 22451668, guid: 0abab5bb77339e4428787a870eb31bd3, type: 3}
       propertyPath: m_LocalPosition.x
@@ -234,20 +250,24 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 22460488, guid: 0abab5bb77339e4428787a870eb31bd3, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -0.19995117
+      value: -0.20019531
       objectReference: {fileID: 0}
     - target: {fileID: 22465754, guid: 0abab5bb77339e4428787a870eb31bd3, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -0.19995117
+      value: -0.20019531
       objectReference: {fileID: 0}
     - target: {fileID: 22477518, guid: 0abab5bb77339e4428787a870eb31bd3, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -0.19995117
+      value: -0.20019531
+      objectReference: {fileID: 0}
+    - target: {fileID: 22493042, guid: 0abab5bb77339e4428787a870eb31bd3, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: -163.56982
       objectReference: {fileID: 0}
     - target: {fileID: 224000010243477314, guid: 0abab5bb77339e4428787a870eb31bd3,
         type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -0.19995117
+      value: -0.20019531
       objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 0abab5bb77339e4428787a870eb31bd3, type: 3}
@@ -285,7 +305,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 400, y: 0}
   m_SizeDelta: {x: 1920, y: 1080}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &653380132
@@ -514,6 +534,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1170285248}
   - component: {fileID: 1170285249}
+  - component: {fileID: 1170285250}
   m_Layer: 0
   m_Name: GameObject
   m_TagString: Untagged
@@ -548,6 +569,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   rawImage: {fileID: 1873876322}
+  text: {fileID: 653380132}
+  decodedTexturePool: {fileID: 1170285250}
+--- !u!114 &1170285250
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1170285247}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86dde72521c66d04aaa53b24855cf206, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1486481327
 GameObject:
   m_ObjectHideFlags: 0
