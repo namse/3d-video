@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Resources;
 using UnityEngine;
 using UnityEngine.UI;
 using Debug = UnityEngine.Debug;
@@ -10,10 +11,13 @@ public class FrameStreamerTester : MonoBehaviour
     public RawImage rawImage;
     public Text text;
     public DecodedTexturePool decodedTexturePool;
+    public Yuv2RgbComputeShader yuv2RgbComputeShader;
     private Texture2D _lastTexture;
+    private IDecoder _decoder;
 
     void Start()
     {
+        _decoder = decodedTexturePool ?? (IDecoder)yuv2RgbComputeShader;
     }
 
     void OnDestroy()
@@ -33,14 +37,14 @@ public class FrameStreamerTester : MonoBehaviour
             Debug.Log(_stopwatch.Elapsed);
         }
         
-        if (decodedTexturePool.TryGetNextTexture(out var texture))
+        if (_decoder.TryGetNextTexture(out var texture))
         {
             rawImage.texture = texture;
             _frameNumber += 1;
 
             if (!(_lastTexture is null))
             {
-                decodedTexturePool.ReturnTexture(_lastTexture);
+                _decoder.ReturnTexture(_lastTexture);
             }
 
             _lastTexture = texture;

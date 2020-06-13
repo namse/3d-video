@@ -14,7 +14,8 @@ using UnityEngine;
 using Debug = UnityEngine.Debug;
 using Object = UnityEngine.Object;
 
-public class DecodedTexturePool : MonoBehaviour
+
+public class DecodedTexturePool : MonoBehaviour, IDecoder
 {
     private readonly Stopwatch _stopwatch = new Stopwatch();
     private IvfAv1Decoder[] _ivfAv1Decoders;
