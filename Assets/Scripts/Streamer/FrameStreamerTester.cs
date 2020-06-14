@@ -1,5 +1,8 @@
 ﻿using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Resources;
+using Dav1dDotnet;
 using UnityEngine;
 using UnityEngine.UI;
 using Debug = UnityEngine.Debug;
@@ -12,8 +15,9 @@ public class FrameStreamerTester : MonoBehaviour
     public Text text;
     public DecodedTexturePool decodedTexturePool;
     public Yuv2RgbComputeShader yuv2RgbComputeShader;
+    public DecodedTexturePool_WithoutBurst decodedTexturePoolWithoutBurst;
     private Texture2D _lastTexture;
-
+    
     void Start()
     {
         Application.targetFrameRate = 60;
@@ -36,7 +40,7 @@ public class FrameStreamerTester : MonoBehaviour
             Debug.Log(_stopwatch.Elapsed);
         }
 
-        var decoder = _frameNumber % 2 == 0 ? decodedTexturePool : (IDecoder) yuv2RgbComputeShader;
+        var decoder = decodedTexturePoolWithoutBurst;
 
         if (decoder.TryGetNextTexture(out var texture))
         {
@@ -45,8 +49,7 @@ public class FrameStreamerTester : MonoBehaviour
 
             if (!(_lastTexture is null))
             {
-                var returnDecoder = _frameNumber % 2 == 0 ? decodedTexturePool : (IDecoder)yuv2RgbComputeShader;
-                returnDecoder.ReturnTexture(_lastTexture);
+                decoder.ReturnTexture(_lastTexture);
             }
 
             _lastTexture = texture;
