@@ -45,8 +45,8 @@ namespace Test
         public unsafe void ConvertPngToRgba_should_work()
         {
             var memoryStream = GeneratePngStream();
-            var argbBytes = PngToArgb.Convert(memoryStream);
-            Assert.AreEqual(argbBytes.Length, 16 * 2* 4);
+            var argbBytes = PngToArgb.Convert(memoryStream, out var width, out var height);
+            Assert.AreEqual(argbBytes.Length, width * height * 4);
 
             var argbUints = argbBytes.ToUintPtr();
 
@@ -66,7 +66,7 @@ namespace Test
         public unsafe void ExtractAlpha_should_work()
         {
             var memoryStream = GeneratePngStream();
-            var argbBytes = PngToArgb.Convert(memoryStream);
+            var argbBytes = PngToArgb.Convert(memoryStream, out _, out _);
 
             var alpha32Bytes = ExtractAlpha.ArgbToAlpha32(argbBytes);
 
@@ -89,7 +89,7 @@ namespace Test
         public void CreateMaskTree_should_work()
         {
             var memoryStream = GeneratePngStream();
-            var argbBytes = PngToArgb.Convert(memoryStream);
+            var argbBytes = PngToArgb.Convert(memoryStream, out _, out _);
             var alpha32Bytes = ExtractAlpha.ArgbToAlpha32(argbBytes);
             var maskTree = MaskTree.Make(alpha32Bytes, Width, Height);
 

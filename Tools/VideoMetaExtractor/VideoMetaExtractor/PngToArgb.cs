@@ -7,7 +7,7 @@ namespace VideoMetaExtractor
 {
     public static class PngToArgb
     {
-        public static byte[] Convert(Stream pngImageStream)
+        public static byte[] Convert(Stream pngImageStream, out int width, out int height)
         {
             using var bitmap = new Bitmap(pngImageStream);
             var rect = new Rectangle(0, 0, bitmap.Width, bitmap.Height);
@@ -18,6 +18,8 @@ namespace VideoMetaExtractor
 
             Marshal.Copy(bitmapData.Scan0, argbBytes, 0, argbBytes.Length);
 
+            width = bitmap.Width;
+            height = bitmap.Height;
             return argbBytes;
         }
     }
