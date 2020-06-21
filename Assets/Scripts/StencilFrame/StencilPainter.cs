@@ -44,7 +44,7 @@ namespace StencilFrameLibrary
             return resultYuv444;
         }
 
-        public static void PaintYuvFrame(Yuv444Frame yuv444Frame, StencilFrame stencilFrame)
+        private static void PaintYuvFrame(Yuv444Frame yuv444Frame, StencilFrame stencilFrame)
         {
             for (var maskYIndex = 0; maskYIndex < 2; maskYIndex += 1)
             {
@@ -67,7 +67,7 @@ namespace StencilFrameLibrary
             }
         }
 
-        public static unsafe void PaintYuvFrame(Yuv444Frame yuv444Frame, StencilFrame stencilFrame,
+        private static unsafe void PaintYuvFrame(Yuv444Frame yuv444Frame, StencilFrame stencilFrame,
             int startX, int startY, int width, int height)
         {
             var yPtr = (byte*)stencilFrame.YPtr.ToPointer();
